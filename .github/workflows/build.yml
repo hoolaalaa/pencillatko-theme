@@ -2,6 +2,8 @@ name: Build APK
 on:
   push:
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,8 +18,21 @@ jobs:
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          set -o pipefail
+          ./gradlew assembleDebug --no-daemon 2>&1 | tee build.log || {
+            msg=$(grep -iE "error|wrong|exception|failed|cause" build.log | head -40 | sed ':a;N;$!ba;s/%/%25/g;s/\r//g;s/\n/%0A/g')
+            echo "::error title=Gradle::${msg}"
+            tail -40 build.log | sed ':a;N;$!ba;s/%/%25/g;s/\n/%0A/g' | sed 's/^/::error title=Tail::/'
+            exit 1
+          }
       - uses: actions/upload-artifact@v5
         with:
           name: apk
           path: build/outputs/apk/**/*.apk
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp build/outputs/apk/debug/*.apk pencillatko-theme.apk
+          gh release delete latest -y --cleanup-tag || true
+          gh release create latest pencillatko-theme.apk --title "Pencillatko theme APK" --notes "Built from ${GITHUB_SHA}"
