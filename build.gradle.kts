@@ -42,6 +42,15 @@ allprojects {
                 }
             }
 
+            signingConfigs {
+                getByName("debug") {
+                    storeFile = rootProject.file("theme.keystore")
+                    storePassword = "rakkotheme"
+                    keyAlias = "theme"
+                    keyPassword = "rakkotheme"
+                }
+            }
+
             compileOptions {
                 sourceCompatibility = JavaVersion.VERSION_21
                 targetCompatibility = JavaVersion.VERSION_21
